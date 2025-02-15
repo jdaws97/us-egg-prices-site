@@ -12,8 +12,6 @@ import {
   Legend,
 } from 'chart.js';
 
-import TimeFrameButtons from './TimeFrameButtons'; 
-
 ChartJS.register(
   CategoryScale,
   LinearScale,
@@ -24,16 +22,35 @@ ChartJS.register(
   Legend
 );
 
+// Update TimeFrameButtons to include all options
+const TimeFrameButtons = ({ selected, onSelect }) => {
+  const timeFrames = ['1M', '3M', '6M', '1Y', '5Y', '10Y'];
+  return (
+    <div className="flex gap-2 flex-wrap mb-4">
+      {timeFrames.map((frame) => (
+        <button
+          key={frame}
+          onClick={() => onSelect(frame)}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+            ${selected === frame ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+        >
+          {frame}
+        </button>
+      ))}
+    </div>
+  );
+};
+
+// Helper: Parse USDA load_time string into a Date object
 function parseLoadTime(loadTimeStr) {
   const isoStr = loadTimeStr.replace(' ', 'T');
   return new Date(isoStr);
 }
 
-
+// Compute cutoff date based on selected timeframe
 function getCutoffDate(timeFrame) {
   const now = new Date();
   const cutoff = new Date(now);
-
   switch (timeFrame) {
     case '1M':
       cutoff.setMonth(cutoff.getMonth() - 1);
@@ -61,18 +78,18 @@ function getCutoffDate(timeFrame) {
 }
 
 const PriceChart = () => {
-  const [fullData, setFullData] = useState([]);
+  const [fullData, setFullData] = useState([]);   // all fetched data
   const [chartData, setChartData] = useState(null);
-  const [timeFrame, setTimeFrame] = useState('5Y');
+  const [timeFrame, setTimeFrame] = useState('5Y'); // default timeframe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Fetch data once (we fetch 10 years of data)
   useEffect(() => {
     const fetchEggPrices = async () => {
       try {
         setLoading(true);
         setError(null);
-
         const currentYear = new Date().getFullYear();
         const from = currentYear - 10;
         const to = currentYear;
@@ -87,8 +104,9 @@ const PriceChart = () => {
           format: 'JSON',
         });
 
+        // Use your Netlify function URL for USDA proxy:
         const response = await fetch(`/.netlify/functions/usdaProxy?${params}`, {
-            method: 'GET',
+          method: 'GET',
         });
 
         if (!response.ok) {
@@ -106,6 +124,7 @@ const PriceChart = () => {
           throw new Error('No price data available');
         }
 
+        // Sort by load_time ascending
         const sorted = data.data.sort((a, b) => {
           return parseLoadTime(a.load_time) - parseLoadTime(b.load_time);
         });
@@ -121,32 +140,32 @@ const PriceChart = () => {
     fetchEggPrices();
   }, []);
 
+  // Filter fullData based on selected timeFrame and build chartData
   useEffect(() => {
     if (!fullData.length) return;
 
     const cutoff = getCutoffDate(timeFrame);
+    console.log(`Cutoff date for ${timeFrame}:`, cutoff);
     const filtered = fullData.filter((row) => {
       const dateObj = parseLoadTime(row.load_time);
       return dateObj >= cutoff;
     });
+    console.log(`Filtered data count: ${filtered.length}`);
 
-    const labels = [];
-    const prices = [];
-
-    filtered.forEach((row) => {
+    // Build labels as tidy date strings (e.g. "Apr 29, 2022")
+    const labels = filtered.map((row) => {
       const dateObj = parseLoadTime(row.load_time);
-      const labelStr = dateObj.toLocaleDateString(undefined, {
+      return dateObj.toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'short',
         day: 'numeric',
       });
+    });
 
+    // Build the prices array
+    const prices = filtered.map((row) => {
       let val = parseFloat(row.Value);
-      if (isNaN(val)) {
-        val = null; 
-      }
-      labels.push(labelStr);
-      prices.push(val);
+      return isNaN(val) ? null : val;
     });
 
     setChartData({
@@ -209,7 +228,7 @@ const PriceChart = () => {
                     ticks: {
                       color: '#6b7280',
                       autoSkip: true,
-                      maxTicksLimit: 8,
+                      maxTicksLimit: 8, // limits number of labels
                     },
                   },
                   y: {
@@ -242,8 +261,7 @@ const PriceChart = () => {
         <div className="mt-6 text-sm text-gray-500">
           <p>Data source: USDA National Agricultural Statistics Service</p>
           <p>
-            <strong>Load Time:</strong> Sorting & filtering by
-            <code> load_time</code>, then converting to a short date string.
+            Displaying data for load_time ≥ {getCutoffDate(timeFrame).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })} (Time frame: {timeFrame})
           </p>
         </div>
       </div>
