@@ -37,7 +37,7 @@ exports.handler = async (event, context) => {
     
     // Call the Hugging Face Inference API with the combined prompt.
     const hfApiKey = process.env.HF_API_KEY; // Set this in Netlify environment variables
-    const model = 'EleutherAI/gpt-neo-125m'; // Ensure the model name is correct (capital M)
+    const model = 'EleutherAI/gpt-neo-2.7B'; // Ensure the model name is correct (capital M)
     
     const hfResponse = await fetch(
       `https://api-inference.huggingface.co/models/${model}`,
