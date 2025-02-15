@@ -1,15 +1,13 @@
 // netlify/functions/eggPriceExplanation.js
 require('dotenv').config();
 const fetch = (...args) =>
-    import('node-fetch').then(({ default: fetch }) => fetch(...args));
+  import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 exports.handler = async (event, context) => {
   try {
     // Expect a POST request with a JSON body containing a "prompt" field
     const { prompt } = JSON.parse(event.body);
 
-    // For example, use Hugging Face's Inference API for a free model (e.g., GPT-Neo)
-    // Make sure to set your Hugging Face API key in Netlify environment variables if needed.
     const hfApiKey = process.env.HF_API_KEY; // Set this in Netlify if required
     const model = 'EleutherAI/gpt-neo-125M'; // Or choose another free model
 
@@ -26,10 +24,18 @@ exports.handler = async (event, context) => {
     );
 
     if (!hfResponse.ok) {
+      // Log full response body for debugging
+      const errorBody = await hfResponse.text();
+      console.error('Hugging Face API error body:', errorBody);
       throw new Error(`Hugging Face API error: ${hfResponse.statusText}`);
     }
 
     const result = await hfResponse.json();
+    // Check if result has an error field
+    if (result.error) {
+      throw new Error(`Hugging Face API returned error: ${result.error}`);
+    }
+
     // Assume the model returns an array of generated texts
     const explanation =
       Array.isArray(result) && result.length > 0
