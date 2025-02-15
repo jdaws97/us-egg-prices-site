@@ -1,11 +1,10 @@
 import React from 'react';
 
 const TimeFrameButtons = ({ selected, onSelect }) => {
-  const frames = ['1M', '3M', '6M', '1Y', '5Y', '10Y'];
-
+  const timeFrames = ['1M', '3M', '6M', '1Y', '5Y', '10Y'];
   return (
     <div className="flex gap-2 flex-wrap mb-4">
-      {frames.map((frame) => (
+      {timeFrames.map((frame) => (
         <button
           key={frame}
           onClick={() => onSelect(frame)}
