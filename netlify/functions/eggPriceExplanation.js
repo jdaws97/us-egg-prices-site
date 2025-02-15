@@ -8,8 +8,13 @@ exports.handler = async (event, context) => {
     // Expect a POST request with a JSON body containing a "prompt" field
     const { prompt } = JSON.parse(event.body);
 
+    // Prepend a base context to the prompt to steer the model toward providing a detailed analysis.
+    const basePrompt =
+      "Provide a concise 3-4 sentence analysis that considers seasonal trends, supply chain disruptions, feed costs, economic conditions, weather events, and market demand. Do not simply repeat the input. ";
+    const improvedPrompt = basePrompt + prompt;
+
     const hfApiKey = process.env.HF_API_KEY; // Set this in Netlify if required
-    const model = 'EleutherAI/gpt-neo-125m'; // Or choose another free model
+    const model = 'EleutherAI/gpt-neo-125M'; // Ensure the model name is correct
 
     const hfResponse = await fetch(
       `https://api-inference.huggingface.co/models/${model}`,
@@ -19,7 +24,15 @@ exports.handler = async (event, context) => {
           'Content-Type': 'application/json',
           ...(hfApiKey && { Authorization: `Bearer ${hfApiKey}` }),
         },
-        body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 100 } }),
+        body: JSON.stringify({
+          inputs: improvedPrompt,
+          parameters: {
+            max_new_tokens: 100,
+            do_sample: true,
+            temperature: 0.7,
+            top_p: 0.9
+          },
+        }),
       }
     );
 
