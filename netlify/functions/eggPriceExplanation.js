@@ -14,7 +14,7 @@ exports.handler = async (event, context) => {
     const improvedPrompt = basePrompt + prompt;
 
     const hfApiKey = process.env.HF_API_KEY; // Set this in Netlify if required
-    const model = 'EleutherAI/gpt-neo-125M'; // Ensure the model name is correct
+    const model = 'EleutherAI/gpt-neo-125m'; // Ensure the model name is correct
 
     const hfResponse = await fetch(
       `https://api-inference.huggingface.co/models/${model}`,
