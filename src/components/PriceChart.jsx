@@ -24,15 +24,15 @@ ChartJS.register(
   Legend
 );
 
-// Mapping USDA month abbreviations to month numbers
+// Mapping from month abbreviations to month numbers
 const monthMap = {
   JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5,
   JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11
 };
 
 /**
- * Parse row.year + row.reference_period_desc into a real Date.
- * E.g. row.year = 2017, row.reference_period_desc = "JUN" => new Date(2017, 5, 1)
+ * Parse the USDA data date from row.year and row.reference_period_desc.
+ * For example, row.year = 2017 and row.reference_period_desc = "JUN" yields new Date(2017, 5, 1).
  */
 function parseRefDate(row) {
   const { year, reference_period_desc } = row;
@@ -42,8 +42,8 @@ function parseRefDate(row) {
 }
 
 /**
- * Compute a cutoff date for the selected timeframe:
- * Options: 1M, 3M, 6M, 1Y, 5Y, 10Y
+ * Compute a cutoff date based on the selected timeframe.
+ * Options: "1M", "3M", "6M", "1Y", "5Y", "10Y"
  */
 function getCutoffDate(timeFrame) {
   const now = new Date();
@@ -75,13 +75,11 @@ function getCutoffDate(timeFrame) {
 }
 
 const PriceChart = () => {
-  const [fullData, setFullData] = useState([]);   // All fetched data (10 years)
+  const [fullData, setFullData] = useState([]); // All fetched data (10 years)
   const [chartData, setChartData] = useState(null);
-  const [timeFrame, setTimeFrame] = useState('5Y'); // Default timeframe
+  const [timeFrame, setTimeFrame] = useState('5Y'); // default timeframe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // For LLM explanation:
   const [selectedPoint, setSelectedPoint] = useState(null);
   const [explanation, setExplanation] = useState('');
 
@@ -93,7 +91,7 @@ const PriceChart = () => {
         setError(null);
 
         const currentYear = new Date().getFullYear();
-        const from = currentYear - 10;  // 10 years ago
+        const from = currentYear - 10; // 10 years ago
         const to = currentYear;
 
         const params = new URLSearchParams({
@@ -106,7 +104,7 @@ const PriceChart = () => {
           format: 'JSON',
         });
 
-        // Call your Netlify function for USDA proxy:
+        // Call your Netlify function for USDA proxy
         const response = await fetch(`/.netlify/functions/usdaProxy?${params}`, {
           method: 'GET',
         });
@@ -126,7 +124,7 @@ const PriceChart = () => {
           throw new Error('No price data available');
         }
 
-        // 2) Sort by actual data date built from year + reference_period_desc
+        // Sort by actual data date built from year + reference_period_desc
         const sorted = data.data.sort((a, b) => {
           return parseRefDate(a) - parseRefDate(b);
         });
@@ -142,14 +140,13 @@ const PriceChart = () => {
     fetchEggPrices();
   }, []);
 
-  // 3) Filter fullData based on selected timeframe and build chartData
+  // 2) Filter fullData based on selected timeframe and build chartData
   useEffect(() => {
     if (!fullData.length) return;
 
     const cutoff = getCutoffDate(timeFrame);
     console.log(`Cutoff date for ${timeFrame}:`, cutoff);
 
-    // Filter rows with actual data date >= cutoff
     const filtered = fullData.filter((row) => {
       const d = parseRefDate(row);
       return d >= cutoff;
@@ -180,16 +177,21 @@ const PriceChart = () => {
           borderColor: '#2563eb',
           backgroundColor: 'rgba(37, 99, 235, 0.1)',
           tension: 0.3,
-          pointRadius: 2, // smaller points
+          pointRadius: 2,
           borderWidth: 2,
         },
       ],
     });
   }, [fullData, timeFrame]);
 
-  // 4) Handle chart clicks. When a data point is clicked, extract its label and price.
+  // 3) Handle chart clicks to fetch explanation from the LLM.
   const handleChartClick = (event, activeElements) => {
     if (!activeElements || activeElements.length === 0) return;
+    
+    // Reset previous selected point and explanation
+    setSelectedPoint(null);
+    setExplanation('');
+
     const element = activeElements[0];
     const index = element.index;
     const label = chartData.labels[index];
@@ -198,9 +200,9 @@ const PriceChart = () => {
     fetchExplanation(label, price);
   };
 
-  // 5) Call the Netlify function to fetch an explanation from your LLM.
+  // 4) Fetch explanation from your Netlify function (LLM)
   const fetchExplanation = async (label, price) => {
-    const prompt = `Egg prices were $${price} per dozen on ${label}. Provide potential reasons (such as seasonal trends, supply issues, or economic factors) that could explain this price level.`;
+    const prompt = `On ${label}, egg prices were $${price} per dozen. Analyze potential factors (seasonal trends, supply chain issues, feed costs, economic conditions, weather events, market demand, etc.) that could have influenced this price level. Provide a detailed explanation.`;
     try {
       const response = await fetch('/.netlify/functions/eggPriceExplanation', {
         method: 'POST',
