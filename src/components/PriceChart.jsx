@@ -198,10 +198,10 @@ const PriceChart = () => {
         {
           label: 'Egg Price ($/DOZEN)',
           data: prices,
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          tension: 0.4,
-          pointRadius: 4,
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          tension: 0.3,
+          pointRadius: 2,
           borderWidth: 2,
         },
       ],
@@ -244,56 +244,42 @@ const PriceChart = () => {
         {chartData && !loading && !error && (
           <div className="h-96">
             <Line
-                data={{
-                    labels,
-                    datasets: [
-                    {
-                        label: 'Egg Price ($/DOZEN)',
-                        data: prices,
-                        // A deeper blue for the line
-                        borderColor: '#2563eb', // e.g. Tailwind's 'blue-600' = #2563eb
-                        // A light fill area
-                        backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                        // Slightly curved line
-                        tension: 0.3,
-                        // Smaller circles
-                        pointRadius: 2,
-                        // Thinner line
-                        borderWidth: 2,
+              data={chartData}
+              options={{
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  x: {
+                    grid: { display: false },
+                    ticks: {
+                      color: '#6b7280',
+                      autoSkip: true,
+                      maxTicksLimit: 8, 
                     },
-                    ],
-                }}
-                options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#6b7280', autoSkip: true, maxTicksLimit: 8 },
+                  },
+                  y: {
+                    beginAtZero: false,
+                    grid: { color: '#f3f4f6' },
+                    ticks: {
+                      color: '#6b7280',
+                      callback: (value) => `$${value}`,
                     },
-                    y: {
-                        beginAtZero: false,
-                        grid: { color: '#f3f4f6' },
-                        ticks: {
-                        color: '#6b7280',
-                        callback: (value) => `$${value}`,
-                        },
+                  },
+                },
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: '#1f2937',
+                    titleColor: '#f9fafb',
+                    bodyColor: '#f9fafb',
+                    callbacks: {
+                      label: (context) => ` $${context.parsed.y}`,
                     },
-                    },
-                    plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: '#1f2937',
-                        titleColor: '#f9fafb',
-                        bodyColor: '#f9fafb',
-                        callbacks: {
-                        label: (context) => ` $${context.parsed.y}`,
-                        },
-                    },
-                    },
-                }}
+                  },
+                },
+              }}
             />
           </div>
         )}
