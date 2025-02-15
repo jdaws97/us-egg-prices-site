@@ -87,8 +87,8 @@ const PriceChart = () => {
           format: 'JSON',
         });
 
-        const response = await fetch(`http://localhost:3000/usda-proxy/usda/api_GET/?${params}`, {
-          method: 'GET',
+        const response = await fetch(`/.netlify/functions/usdaProxy?${params}`, {
+            method: 'GET',
         });
 
         if (!response.ok) {
