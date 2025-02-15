@@ -107,7 +107,7 @@ const PriceChart = () => {
 
         const currentYear = new Date().getFullYear();
         const from = currentYear - 10;  // 10 years ago
-        const to = currentYear;
+        const to = currentYear + 1;
 
         const params = new URLSearchParams({
           commodity_desc: 'EGGS',
