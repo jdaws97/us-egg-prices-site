@@ -30,14 +30,14 @@ exports.handler = async (event, context) => {
       ddgSummary = ddgData.RelatedTopics[0].Text;
     }
     
-    // Build a final combined prompt.
+    // Build a final combined prompt with a clear delimiter.
     const basePrompt =
       "Provide a concise, 3-4 sentence analysis that considers potential factors such as seasonal trends, supply chain disruptions, feed costs, economic conditions, weather events, and market demand. Do not simply repeat the input.";
-    const combinedPrompt = `${basePrompt} DuckDuckGo context: ${ddgSummary}. Original observation: ${prompt}`;
+    const combinedPrompt = `${basePrompt}\n\nDuckDuckGo context: ${ddgSummary}\n\nOriginal observation: ${prompt}\n\nExplanation:`;
     
     // Call the Hugging Face Inference API with the combined prompt.
     const hfApiKey = process.env.HF_API_KEY; // Set this in Netlify environment variables
-    const model = 'mistralai/Mistral-7B-Instruct-v0.3'; // Ensure the model name is correct (capital M)
+    const model = 'mistralai/Mistral-7B-Instruct-v0.3'; // Ensure the model name is correct
     
     const hfResponse = await fetch(
       `https://api-inference.huggingface.co/models/${model}`,
@@ -72,10 +72,17 @@ exports.handler = async (event, context) => {
     }
     
     // Assume the model returns an array of generated texts.
-    const explanation =
+    let explanation =
       Array.isArray(result) && result.length > 0
         ? result[0].generated_text
         : 'No explanation found.';
+    
+    // Post-process: Remove any prompt text by extracting text after "Explanation:"
+    const delimiter = "Explanation:";
+    const delimiterIndex = explanation.indexOf(delimiter);
+    if (delimiterIndex !== -1) {
+      explanation = explanation.substring(delimiterIndex + delimiter.length).trim();
+    }
     
     return {
       statusCode: 200,
