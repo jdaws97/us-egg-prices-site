@@ -14,7 +14,7 @@ exports.handler = async (event, context) => {
     // Convert the provided date to an ISO string (YYYY-MM-DD)
     const isoDate = new Date(date).toISOString().split('T')[0];
 
-    // Build a query for NewsData.io (using "egg price factors" as our search query)
+    // Build a query for NewsData.io archive endpoint (using "egg price factors" as our search query)
     const newsQuery = 'egg price factors';
     
     // Get your NewsData.io API key from environment variables
@@ -23,12 +23,12 @@ exports.handler = async (event, context) => {
       throw new Error("Missing NEWS_DATA_API_KEY");
     }
 
-    // Construct the URL for NewsData.io's API
-    const newsUrl = `https://newsdata.io/api/1/news?apikey=${newsApiKey}&q=${encodeURIComponent(
+    // Construct the URL for NewsData.io's archive API with the date parameter
+    const newsUrl = `https://newsdata.io/api/1/archive?apikey=${newsApiKey}&q=${encodeURIComponent(
       newsQuery
-    )}&from_date=${isoDate}&to_date=${isoDate}&language=en&page=1`;
+    )}&date=${isoDate}&language=en&page=1`;
 
-    // Fetch articles from NewsData.io
+    // Fetch articles from NewsData.io archive endpoint
     const newsResponse = await fetch(newsUrl);
     if (!newsResponse.ok) {
       const errorBody = await newsResponse.text();
