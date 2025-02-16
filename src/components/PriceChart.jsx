@@ -200,13 +200,14 @@ const PriceChart = () => {
     fetchExplanation(label, price);
   };
 
+  // 4) Fetch explanation from your Netlify function (LLM)
   const fetchExplanation = async (label, price) => {
     const prompt = `On ${label}, egg prices were $${price} per dozen. Analyze potential factors (seasonal trends, supply chain issues, feed costs, economic conditions, weather events, market demand, etc.) that could have influenced this price level. Provide a detailed explanation.`;
     try {
       const response = await fetch('/.netlify/functions/eggPriceExplanation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, date: label }), // Pass the date here
+        body: JSON.stringify({ prompt }),
       });
       if (!response.ok) {
         throw new Error(`LLM API error: ${response.statusText}`);
@@ -217,7 +218,7 @@ const PriceChart = () => {
       setExplanation(`Error fetching explanation: ${error.message}`);
     }
   };
-  
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="bg-white rounded-xl p-6 shadow-lg">

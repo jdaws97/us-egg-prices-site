@@ -5,60 +5,40 @@ const fetch = (...args) =>
 
 exports.handler = async (event, context) => {
   try {
-    // Expect a POST request with a JSON body containing "prompt" and "date"
-    const { prompt, date } = JSON.parse(event.body);
-    if (!date) {
-      throw new Error("Date is required");
-    }
-
-    // Convert the provided date to an ISO string (YYYY-MM-DD)
-    const isoDate = new Date(date).toISOString().split('T')[0];
-
-    // Build a query for NewsData.io archive endpoint (using "egg price factors" as our search query)
-    const newsQuery = 'egg price factors';
+    // Expect a POST request with a JSON body containing a "prompt" field.
+    const { prompt } = JSON.parse(event.body);
     
-    // Get your NewsData.io API key from environment variables
-    const newsApiKey = process.env.NEWS_DATA_API_KEY;
-    if (!newsApiKey) {
-      throw new Error("Missing NEWS_DATA_API_KEY");
-    }
-
-    // Construct the URL for NewsData.io's archive API with the date parameter
-    const newsUrl = `https://newsdata.io/api/1/archive?apikey=${newsApiKey}&q=${encodeURIComponent(
-      newsQuery
-    )}&date=${isoDate}&language=en&page=1`;
-
-    // Fetch articles from NewsData.io archive endpoint
-    const newsResponse = await fetch(newsUrl);
-    if (!newsResponse.ok) {
-      const errorBody = await newsResponse.text();
-      console.error("NewsData.io API error body:", errorBody);
-      throw new Error(`NewsData.io API error: ${newsResponse.statusText}`);
-    }
-    const newsData = await newsResponse.json();
+    // Construct a search query for DuckDuckGo.
+    // Here we use a query that includes "egg price factors" along with the prompt details.
+    const searchQuery = `egg price factors ${prompt}`;
+    const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&format=json&no_redirect=1&no_html=1`;
     
-    // Concatenate article titles and source info as our news summary.
-    let newsSummary = '';
-    if (newsData.results && newsData.results.length > 0) {
-      newsSummary = newsData.results
-        .map((article) => {
-          // Some articles might not have a source field; default to "Unknown Source"
-          const source = article.source_id || 'Unknown Source';
-          return `${article.title} - ${source}`;
-        })
-        .join('; ');
-    } else {
-      newsSummary = 'No relevant news found for this date.';
+    // Fetch from DuckDuckGo Instant Answer API.
+    const ddgResponse = await fetch(ddgUrl);
+    const ddgData = await ddgResponse.json();
+    
+    // Extract a summary from DuckDuckGo's result.
+    let ddgSummary = '';
+    if (ddgData.Abstract && ddgData.Abstract.length > 0) {
+      ddgSummary = ddgData.Abstract;
+    } else if (
+      ddgData.RelatedTopics &&
+      Array.isArray(ddgData.RelatedTopics) &&
+      ddgData.RelatedTopics.length > 0 &&
+      ddgData.RelatedTopics[0].Text
+    ) {
+      ddgSummary = ddgData.RelatedTopics[0].Text;
     }
-
-    // Build a final combined prompt
+    
+    // Build a final combined prompt.
     const basePrompt =
       "Provide a concise, 3-4 sentence analysis that considers potential factors such as seasonal trends, supply chain disruptions, feed costs, economic conditions, weather events, and market demand. Do not simply repeat the input.";
-    const combinedPrompt = `${basePrompt} News context: ${newsSummary}. Original observation: ${prompt}`;
-
+    const combinedPrompt = `${basePrompt} DuckDuckGo context: ${ddgSummary}. Original observation: ${prompt}`;
+    
     // Call the Hugging Face Inference API with the combined prompt.
     const hfApiKey = process.env.HF_API_KEY; // Set this in Netlify environment variables
-    const model = 'EleutherAI/gpt-neo-2.7B';
+    const model = 'EleutherAI/gpt-neo-2.7B'; // Ensure the model name is correct (capital M)
+    
     const hfResponse = await fetch(
       `https://api-inference.huggingface.co/models/${model}`,
       {
@@ -78,24 +58,25 @@ exports.handler = async (event, context) => {
         }),
       }
     );
-
+    
     if (!hfResponse.ok) {
+      // Log full response body for debugging
       const errorBody = await hfResponse.text();
       console.error('Hugging Face API error body:', errorBody);
       throw new Error(`Hugging Face API error: ${hfResponse.statusText}`);
     }
-
+    
     const result = await hfResponse.json();
     if (result.error) {
       throw new Error(`Hugging Face API returned error: ${result.error}`);
     }
-
+    
     // Assume the model returns an array of generated texts.
     const explanation =
       Array.isArray(result) && result.length > 0
         ? result[0].generated_text
         : 'No explanation found.';
-
+    
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
