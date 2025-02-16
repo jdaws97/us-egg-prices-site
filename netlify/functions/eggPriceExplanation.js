@@ -50,7 +50,7 @@ exports.handler = async (event, context) => {
         body: JSON.stringify({
           inputs: combinedPrompt,
           parameters: {
-            max_new_tokens: 100,
+            max_new_tokens: 500,
             do_sample: true,
             temperature: 0.7,
             top_p: 0.9,
