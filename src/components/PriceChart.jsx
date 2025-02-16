@@ -217,7 +217,7 @@ const PriceChart = () => {
       setExplanation(`Error fetching explanation: ${error.message}`);
     }
   };
-
+  
   return (
     <div className="max-w-6xl mx-auto p-6">
       <div className="bg-white rounded-xl p-6 shadow-lg">

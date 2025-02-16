@@ -14,34 +14,38 @@ exports.handler = async (event, context) => {
     // Convert the provided date to an ISO string (YYYY-MM-DD)
     const isoDate = new Date(date).toISOString().split('T')[0];
 
-    // Build a query for the News API (using "egg price factors" as our search query)
+    // Build a query for NewsData.io (using "egg price factors" as our search query)
     const newsQuery = 'egg price factors';
-    const newsUrl = `https://newsapi.org/v2/everything?q=${encodeURIComponent(
-      newsQuery
-    )}&from=${isoDate}&to=${isoDate}&language=en&pageSize=3`;
-
-    // Get your News API key from environment variables
-    const newsApiKey = process.env.NEWS_API_KEY;
+    
+    // Get your NewsData.io API key from environment variables
+    const newsApiKey = process.env.NEWS_DATA_API_KEY;
     if (!newsApiKey) {
-      throw new Error("Missing NEWS_API_KEY");
+      throw new Error("Missing NEWS_DATA_API_KEY");
     }
 
-    // Fetch articles from the News API
-    const newsResponse = await fetch(newsUrl, {
-      headers: { 'X-Api-Key': newsApiKey },
-    });
+    // Construct the URL for NewsData.io's API
+    const newsUrl = `https://newsdata.io/api/1/news?apikey=${newsApiKey}&q=${encodeURIComponent(
+      newsQuery
+    )}&from_date=${isoDate}&to_date=${isoDate}&language=en&page=1`;
+
+    // Fetch articles from NewsData.io
+    const newsResponse = await fetch(newsUrl);
     if (!newsResponse.ok) {
       const errorBody = await newsResponse.text();
-      console.error("News API error body:", errorBody);
-      throw new Error(`News API error: ${newsResponse.statusText}`);
+      console.error("NewsData.io API error body:", errorBody);
+      throw new Error(`NewsData.io API error: ${newsResponse.statusText}`);
     }
     const newsData = await newsResponse.json();
     
-    // Concatenate article titles and source names as our news summary
+    // Concatenate article titles and source info as our news summary.
     let newsSummary = '';
-    if (newsData.articles && newsData.articles.length > 0) {
-      newsSummary = newsData.articles
-        .map((article) => `${article.title} - ${article.source.name}`)
+    if (newsData.results && newsData.results.length > 0) {
+      newsSummary = newsData.results
+        .map((article) => {
+          // Some articles might not have a source field; default to "Unknown Source"
+          const source = article.source_id || 'Unknown Source';
+          return `${article.title} - ${source}`;
+        })
         .join('; ');
     } else {
       newsSummary = 'No relevant news found for this date.';
