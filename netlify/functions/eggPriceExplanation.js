@@ -1,93 +1,47 @@
-// netlify/functions/eggPriceExplanation.js
 require('dotenv').config();
-const fetch = (...args) =>
-  import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
+const NEWS_API_KEY = process.env.NEWS_API_KEY;
+const HF_API_KEY = process.env.HF_API_KEY;
+const MODEL = 'mistralai/mistral-7b-instruct';
 
 exports.handler = async (event, context) => {
   try {
-    // Expect a POST request with a JSON body containing a "prompt" field.
-    const { prompt } = JSON.parse(event.body);
+    const { date, price } = JSON.parse(event.body);
+    if (!date || !price) throw new Error('Missing required parameters');
     
-    // Construct a search query for DuckDuckGo.
-    // Here we use a query that includes "egg price factors" along with the prompt details.
-    const searchQuery = `egg price factors ${prompt}`;
-    const ddgUrl = `https://api.duckduckgo.com/?q=${encodeURIComponent(searchQuery)}&format=json&no_redirect=1&no_html=1`;
+    // Check cache (we'll add this in the front-end)
+    const cacheKey = `${date}-${price}`;
     
-    // Fetch from DuckDuckGo Instant Answer API.
-    const ddgResponse = await fetch(ddgUrl);
-    const ddgData = await ddgResponse.json();
+    // Fetch relevant news articles
+    const newsUrl = `https://newsapi.org/v2/everything?q=egg+prices&from=${date}&to=${date}&sortBy=relevancy&apiKey=${NEWS_API_KEY}`;
+    const newsResponse = await fetch(newsUrl);
+    const newsData = await newsResponse.json();
     
-    // Extract a summary from DuckDuckGo's result.
-    let ddgSummary = '';
-    if (ddgData.Abstract && ddgData.Abstract.length > 0) {
-      ddgSummary = ddgData.Abstract;
-    } else if (
-      ddgData.RelatedTopics &&
-      Array.isArray(ddgData.RelatedTopics) &&
-      ddgData.RelatedTopics.length > 0 &&
-      ddgData.RelatedTopics[0].Text
-    ) {
-      ddgSummary = ddgData.RelatedTopics[0].Text;
+    let newsSummary = '';
+    if (newsData.articles && newsData.articles.length > 0) {
+      newsSummary = newsData.articles.slice(0, 3).map(a => `- ${a.title}: ${a.description}`).join('\n');
     }
     
-    // Build a final combined prompt.
-    const basePrompt =
-      "Provide a concise, 3-4 sentence analysis that considers potential factors such as seasonal trends, supply chain disruptions, feed costs, economic conditions, weather events, and market demand. Do not simply repeat the input.";
-    const combinedPrompt = `${basePrompt} DuckDuckGo context: ${ddgSummary}. Original observation: ${prompt}`;
+    const prompt = `On ${date}, egg prices were $${price} per dozen. Analyze potential factors such as seasonal trends, supply chain issues, feed costs, economic conditions, weather events, and market demand. Recent news: ${newsSummary}`;
     
-    // Call the Hugging Face Inference API with the combined prompt.
-    const hfApiKey = process.env.HF_API_KEY; // Set this in Netlify environment variables
-    const model = 'EleutherAI/gpt-neo-2.7B'; // Ensure the model name is correct (capital M)
+    // Call Hugging Face API
+    const hfResponse = await fetch(`https://api-inference.huggingface.co/models/${MODEL}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${HF_API_KEY}`,
+      },
+      body: JSON.stringify({ inputs: prompt, parameters: { max_new_tokens: 100, temperature: 0.7 } })
+    });
     
-    const hfResponse = await fetch(
-      `https://api-inference.huggingface.co/models/${model}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(hfApiKey && { Authorization: `Bearer ${hfApiKey}` }),
-        },
-        body: JSON.stringify({
-          inputs: combinedPrompt,
-          parameters: {
-            max_new_tokens: 100,
-            do_sample: true,
-            temperature: 0.7,
-            top_p: 0.9,
-          },
-        }),
-      }
-    );
-    
-    if (!hfResponse.ok) {
-      // Log full response body for debugging
-      const errorBody = await hfResponse.text();
-      console.error('Hugging Face API error body:', errorBody);
-      throw new Error(`Hugging Face API error: ${hfResponse.statusText}`);
-    }
+    if (!hfResponse.ok) throw new Error(`Hugging Face API error: ${hfResponse.statusText}`);
     
     const result = await hfResponse.json();
-    if (result.error) {
-      throw new Error(`Hugging Face API returned error: ${result.error}`);
-    }
+    const explanation = Array.isArray(result) ? result[0].generated_text : 'No explanation found.';
     
-    // Assume the model returns an array of generated texts.
-    const explanation =
-      Array.isArray(result) && result.length > 0
-        ? result[0].generated_text
-        : 'No explanation found.';
-    
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ explanation }),
-    };
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ explanation }) };
   } catch (error) {
-    console.error('Error in eggPriceExplanation function:', error);
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: error.message }),
-    };
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: error.message }) };
   }
 };
